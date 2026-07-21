@@ -84,9 +84,12 @@ message ParsedNaturalDateTime {
   // The ISO 639-1 code of the language dateparser matched `text` against,
   // when found is true (e.g. "fr" for "il y a 2 heures").
   string detected_language = 3;
-  // The granularity dateparser actually recognized: "time" (a bare
-  // time-of-day, date filled in from base_time), "day" (a full calendar
-  // date), "week"/"month"/"year" (a coarser period, e.g. "next month").
+  // The granularity dateparser actually recognized: "time" (the match
+  // includes an explicit clock time, e.g. "5pm" or "tomorrow at 5pm" --
+  // whether or not the date portion was stated or filled in from
+  // base_time), "day" (a calendar date with no time-of-day component, e.g.
+  // "2026-01-15" or a purely relative delta like "3 days ago"),
+  // "week"/"month"/"year" (a coarser relative period, e.g. "next month").
   string period = 4;
   Error error = 5;
 }

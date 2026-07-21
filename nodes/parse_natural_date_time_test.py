@@ -38,7 +38,21 @@ def test_relative_period_words():
 def test_relative_time_of_day():
     r = run("tomorrow at 5pm", BASE)
     assert r.datetime == "2026-01-02T17:00:00"
-    assert r.period == "day"
+    # An explicit clock time in the match reports "time", regardless of
+    # whether the date portion was stated or filled in from base_time.
+    assert r.period == "time"
+
+
+def test_bare_clock_time_reports_time_period():
+    r = run("5pm", BASE)
+    assert r.datetime == "2026-01-01T17:00:00"
+    assert r.period == "time"
+
+
+def test_date_only_expression_reports_day_period_even_when_relative():
+    # "3 days ago" has no clock-time component, so it stays "day" even
+    # though it is a purely relative delta rather than a stated calendar date.
+    assert run("3 days ago", BASE).period == "day"
 
 
 def test_french_relative_expression_and_detected_language():
@@ -147,6 +161,21 @@ def test_invalid_date_order_is_a_structured_error():
 
 def test_convert_to_timezone_without_a_source_zone_is_a_structured_error():
     r = run("3 days ago", BASE, convert_to_timezone="UTC")
+    assert r.error.code == "INVALID_INPUT"
+
+
+def test_unknown_assume_timezone_is_a_structured_invalid_input_error():
+    # Must not fall through to dateparser's own UnknownTimeZoneError and
+    # surface as INTERNAL -- the caller's mistake belongs in INVALID_INPUT.
+    r = run("3 days ago", BASE, assume_timezone="Not/ARealZone")
+    assert r.error.code == "INVALID_INPUT"
+
+
+def test_unknown_convert_to_timezone_is_a_structured_invalid_input_error():
+    r = run(
+        "3 days ago", BASE,
+        assume_timezone="America/New_York", convert_to_timezone="Not/ARealZone",
+    )
     assert r.error.code == "INVALID_INPUT"
 
 

@@ -128,6 +128,21 @@ def validate_languages(codes: Iterable[str], field: str) -> List[str]:
     return codes
 
 
+def check_timezone(name: str, field: str) -> str:
+    """Validate an IANA zone name against Python's own tzdata, so an unknown
+    zone is reported as INVALID_INPUT rather than falling through to
+    dateparser's UnknownTimeZoneError and surfacing as INTERNAL.
+    """
+    from zoneinfo import available_timezones
+
+    if name not in available_timezones():
+        raise err(
+            "INVALID_INPUT",
+            f"{field} '{echo(name)}' is not a known IANA time zone name",
+        )
+    return name
+
+
 def parse_base_time(value: str, field: str = "base_time") -> Tuple[datetime, bool]:
     """Parse an RFC 3339 / ISO 8601 instant. Returns (datetime, is_aware)."""
     if value is None or value == "":
@@ -152,7 +167,13 @@ def build_settings(base_time: str, options) -> Tuple[dict, List[str], bool]:
     """
     base_dt, is_aware = parse_base_time(base_time)
 
-    settings: dict = {}
+    settings: dict = {
+        # Without this, dateparser reports "day" as the period for a bare
+        # time-of-day match (e.g. "5pm") just like it does for a full
+        # calendar date -- collapsing the one distinction `period` exists to
+        # make. With it, a bare time-of-day match is reported as "time".
+        "RETURN_TIME_AS_PERIOD": True,
+    }
     if is_aware:
         # Pin to UTC explicitly rather than leaving dateparser's TIMEZONE
         # default ("local", the host's own zone) in play -- see module
@@ -168,7 +189,7 @@ def build_settings(base_time: str, options) -> Tuple[dict, List[str], bool]:
     convert_tz = getattr(options, "convert_to_timezone", "") if options is not None else ""
 
     if assume_tz:
-        settings["TIMEZONE"] = assume_tz
+        settings["TIMEZONE"] = check_timezone(assume_tz, "options.assume_timezone")
         settings["RETURN_AS_TIMEZONE_AWARE"] = True
 
     if convert_tz:
@@ -179,7 +200,7 @@ def build_settings(base_time: str, options) -> Tuple[dict, List[str], bool]:
                 "or an aware base_time (one carrying a UTC offset) -- "
                 "otherwise there is no source zone to convert from",
             )
-        settings["TO_TIMEZONE"] = convert_tz
+        settings["TO_TIMEZONE"] = check_timezone(convert_tz, "options.convert_to_timezone")
         settings["RETURN_AS_TIMEZONE_AWARE"] = True
 
     prefer = getattr(options, "prefer_dates_from", "") if options is not None else ""
