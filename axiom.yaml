@@ -1,0 +1,72 @@
+name: christiangeorgelucas/dateparse-tools
+version: 0.1.0
+language: python
+description: >-
+  Composable Axiom natural-language date/time parsing nodes wrapping the
+  BSD-3-Clause dateparser library — resolve free-form human phrases like
+  "3 days ago", "next month", or "il y a 2 heures" into normalized ISO 8601
+  instants, detect which language a date phrase is written in, find every
+  date/time expression embedded in a longer passage, and parse the two ends
+  of a date range. Every relative expression resolves against a
+  caller-supplied reference instant, never the wall clock, so every node is
+  deterministic and reproducible across runs and machines. Offline (bundled
+  language data), stateless, and bounded: language search defaults to a
+  compact common-language shortlist rather than the library's full ~200
+  locales, keeping worst-case latency predictable.
+license: MIT
+author: Christian George Lucas
+tags:
+  - date
+  - time
+  - datetime
+  - natural-language
+  - nlp
+  - parsing
+  - relative-time
+  - timezone
+  - i18n
+nodes:
+    - name: ParseNaturalDateTime
+      description: >-
+        Resolve one natural-language date/time expression (absolute, like
+        "2026-01-15", or relative, like "3 days ago" / "next month") into a
+        normalized ISO 8601 instant, anchored to a caller-supplied base_time
+        rather than the wall clock. Reports the matched expression's
+        granularity (period) and detected language, and returns found=false
+        (not an error) when the text simply isn't a date/time expression.
+      input: NaturalDateTimeRequest
+      output: ParsedNaturalDateTime
+    - name: DetectPhraseLanguage
+      description: >-
+        Identify which language a date/time phrase is written in (e.g. "il y
+        a 2 heures" -> "fr"), independent of resolving it to an instant.
+        Useful for routing or logging before a full parse.
+      input: PhraseLanguageRequest
+      output: DetectedPhraseLanguage
+    - name: SearchDateTimeExpressions
+      description: >-
+        Find every natural-language date/time expression embedded in a
+        longer passage of free text (e.g. an email or message), each
+        resolved against the same caller-supplied base_time, with the
+        matched substring and its position in the original text. When the
+        passage's language is known, narrow options.languages to it (e.g.
+        ["en"]) for tighter match boundaries than the default multi-language
+        shortlist, which can pick shorter or looser spans when more
+        languages are active at once.
+      input: DateTimeSearchRequest
+      output: FoundDateTimeExpressions
+    - name: ParseDateTimeRange
+      description: >-
+        Resolve the two ends of a date/time range from independent
+        natural-language expressions (e.g. start_text="March 1",
+        end_text="March 5"), both anchored to the same caller-supplied
+        base_time, and report whether the resolved pair is in order.
+      input: DateTimeRangeRequest
+      output: ParsedDateTimeRange
+    - name: ListSupportedLanguages
+      description: >-
+        List the language codes dateparser's bundled locale data recognizes
+        — the valid values for every other node's `languages` /
+        `candidate_languages` option — optionally filtered by prefix.
+      input: SupportedLanguagesRequest
+      output: SupportedLanguageCatalog

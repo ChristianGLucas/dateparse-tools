@@ -1,0 +1,185 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.dateparse_tools;
+
+// A deterministic, structured rejection. Every node in this package returns
+// one of these instead of crashing on bad input; `code` is empty on success.
+// Stable codes: INVALID_INPUT (the request itself is malformed — empty text,
+// unparseable base_time, unknown language code), LIMIT_EXCEEDED (too many
+// entries in a repeated field, e.g. more than 30 language codes), TOO_LARGE
+// (a text field exceeds this package's length bound), INTERNAL (the package
+// itself faulted; the caller's input may be fine).
+message Error {
+  string code = 1;
+  string message = 2;
+}
+
+// Shared parsing knobs reused by every node that resolves a natural-language
+// expression against dateparser. Leaving a field at its zero value takes the
+// documented default described on that field.
+message ParseOptions {
+  // ISO 639-1 language codes to restrict recognition to, e.g. ["en","fr"].
+  // Empty (the default) uses this package's bounded shortlist of ~18 common
+  // languages (en es fr de pt it nl ru zh ja ko ar hi tr pl uk sv id) rather
+  // than dateparser's full ~200-locale search — unrestricted search is
+  // meaningfully slower (tens to hundreds of ms per call on unparseable
+  // input, since every locale is tried before giving up) and this keeps
+  // every call bounded. Pass explicit codes to widen or narrow the search;
+  // at most 30 codes are accepted. An unrecognized code is INVALID_INPUT.
+  repeated string languages = 1;
+  // Which direction resolves an ambiguous bare expression such as a lone
+  // weekday or month name: "current_period" (default — the nearest match in
+  // either direction), "future", or "past". Unknown value is INVALID_INPUT.
+  string prefer_dates_from = 2;
+  // Disambiguates a purely numeric date like "01/02/2026": "MDY" (default),
+  // "DMY", or "YMD". Unknown value is INVALID_INPUT.
+  string date_order = 3;
+  // When true, reject a match that is not a complete calendar date (e.g. a
+  // bare time of day with no date component is rejected rather than filled
+  // in from base_time). Default false.
+  bool strict_parsing = 4;
+  // IANA zone name (e.g. "America/New_York"). When set, a parsed result with
+  // no zone of its own is interpreted as being in this zone and the output
+  // carries its UTC offset. When unset, the output's awareness follows
+  // base_time's own: an offset-bearing base_time yields an offset-bearing
+  // (UTC) result, a naive base_time yields a naive result.
+  string assume_timezone = 5;
+  // IANA zone name to convert the resolved instant into before formatting.
+  // Requires assume_timezone to be set, or base_time to already carry an
+  // offset, or the matched text to carry its own offset/zone — otherwise
+  // there is no source zone to convert from and this is INVALID_INPUT.
+  string convert_to_timezone = 6;
+}
+
+// Parse one natural-language date/time expression, resolved against a
+// caller-supplied reference instant so the result is reproducible.
+message NaturalDateTimeRequest {
+  // The phrase to interpret, e.g. "3 days ago", "next month", "il y a 2 heures".
+  // Required, non-empty, at most 2000 characters.
+  string text = 1;
+  // The reference instant relative expressions resolve against — RELATIVE
+  // BASE, never the wall clock. RFC 3339 / ISO 8601, e.g. "2026-01-01" or
+  // "2026-01-01T00:00:00-05:00". Required.
+  string base_time = 2;
+  ParseOptions options = 3;
+}
+
+// The result of resolving one natural-language expression.
+message ParsedNaturalDateTime {
+  // ISO 8601 instant, e.g. "2025-12-29T00:00:00" or, when timezone-aware,
+  // "2025-12-29T00:00:00-05:00". Empty when found is false.
+  string datetime = 1;
+  // True when `text` was recognized as a date/time expression. False is a
+  // normal negative result (the text simply isn't a date), not an error.
+  bool found = 2;
+  // The ISO 639-1 code of the language dateparser matched `text` against,
+  // when found is true (e.g. "fr" for "il y a 2 heures").
+  string detected_language = 3;
+  // The granularity dateparser actually recognized: "time" (a bare
+  // time-of-day, date filled in from base_time), "day" (a full calendar
+  // date), "week"/"month"/"year" (a coarser period, e.g. "next month").
+  string period = 4;
+  Error error = 5;
+}
+
+// Identify which language a date/time phrase is written in, independent of
+// resolving it to an instant.
+message PhraseLanguageRequest {
+  // The phrase to identify, e.g. "il y a 2 heures". Required, non-empty, at
+  // most 2000 characters.
+  string text = 1;
+  // Restrict the candidate languages considered, as ISO 639-1 codes. Empty
+  // uses this package's bounded default shortlist (see ParseOptions.languages).
+  // At most 30 codes are accepted.
+  repeated string candidate_languages = 2;
+}
+
+// The language dateparser matched a phrase against.
+message DetectedPhraseLanguage {
+  // ISO 639-1 code, e.g. "fr". Empty when recognized is false.
+  string language = 1;
+  // True when `text` matched a date/time pattern in some candidate language.
+  // False is a normal negative result, not an error.
+  bool recognized = 2;
+  Error error = 3;
+}
+
+// Find every natural-language date/time expression embedded in a longer
+// passage of free text, each resolved against the same reference instant.
+message DateTimeSearchRequest {
+  // The passage to search. Required, non-empty, at most 20000 characters.
+  string text = 1;
+  // The reference instant every match's relative expressions resolve
+  // against. Required, RFC 3339 / ISO 8601.
+  string base_time = 2;
+  ParseOptions options = 3;
+}
+
+// One date/time expression found inside a larger passage.
+message DateTimeMatch {
+  // The exact substring of the original text that was recognized.
+  string text = 1;
+  // UTF-8 byte offset of `text`'s first character within the searched text.
+  int32 start_index = 2;
+  // ISO 8601 instant the match resolved to, on the same terms as
+  // ParsedNaturalDateTime.datetime.
+  string datetime = 3;
+}
+
+// Every date/time expression found in a passage, earliest match first.
+message FoundDateTimeExpressions {
+  repeated DateTimeMatch matches = 1;
+  Error error = 2;
+}
+
+// Parse the two ends of a date/time range from independent natural-language
+// expressions, resolved against the same reference instant.
+message DateTimeRangeRequest {
+  // The phrase naming the range's start, e.g. "March 1".
+  string start_text = 1;
+  // The phrase naming the range's end, e.g. "March 5".
+  string end_text = 2;
+  // The reference instant both ends resolve against. Required.
+  string base_time = 3;
+  ParseOptions options = 4;
+}
+
+// The resolved bounds of a date/time range.
+message ParsedDateTimeRange {
+  // ISO 8601 instant for start_text; empty when start_found is false.
+  string start_datetime = 1;
+  // ISO 8601 instant for end_text; empty when end_found is false.
+  string end_datetime = 2;
+  bool start_found = 3;
+  bool end_found = 4;
+  // True when both ends were found and start_datetime <= end_datetime.
+  // False when either end was not found, or when they were found but out
+  // of order (a normal outcome, not an error — the caller decides how to
+  // treat a reversed range).
+  bool ordered = 5;
+  Error error = 6;
+}
+
+// List the language codes this package's bundled date data recognizes.
+message SupportedLanguagesRequest {
+  // Only return codes starting with this prefix, e.g. "e" -> "en","es",...
+  // Empty returns every supported code.
+  string prefix = 1;
+}
+
+// The set of ISO 639-1 (or ISO 639-1 + region/script variant, e.g.
+// "az-Cyrl") codes dateparser's bundled locale data recognizes — the valid
+// values for ParseOptions.languages and PhraseLanguageRequest.candidate_languages.
+message SupportedLanguageCatalog {
+  repeated string languages = 1;
+  int32 count = 2;
+}

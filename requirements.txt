@@ -1,0 +1,15 @@
+# Pinned for determinism. Full transitive tree, all verified permissive from
+# source LICENSE files (see the retrospective for the license audit):
+#   dateparser      — BSD-3-Clause (Scrapinghub/Zyte)
+#   python-dateutil — dual BSD-3-Clause/Apache-2.0
+#   pytz            — MIT
+#   regex           — Apache-2.0 (derived from CPython's 're', Python-license
+#                     portions; all-permissive)
+#   tzlocal         — MIT
+#   six             — MIT (python-dateutil's own dependency)
+dateparser==1.4.1
+python-dateutil==2.9.0.post0
+pytz==2026.2
+regex==2026.7.19
+tzlocal==5.4.4
+six==1.17.0
