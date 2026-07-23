@@ -1,6 +1,6 @@
 # dateparse-tools
 
-Composable [Axiom](https://axiom.co) nodes for natural-language date/time
+Composable [Axiom](https://axiomide.com) nodes for natural-language date/time
 parsing, wrapping the BSD-3-Clause [dateparser](https://github.com/scrapinghub/dateparser)
 library. Built for the Axiom marketplace under the `christiangeorgelucas` handle.
 
