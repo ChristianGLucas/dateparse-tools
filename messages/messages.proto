@@ -14,10 +14,9 @@ package christiangeorgelucas.dateparse_tools;
 // A deterministic, structured rejection. Every node in this package returns
 // one of these instead of crashing on bad input; `code` is empty on success.
 // Stable codes: INVALID_INPUT (the request itself is malformed — empty text,
-// unparseable base_time, unknown language code), LIMIT_EXCEEDED (too many
-// entries in a repeated field, e.g. more than 30 language codes), TOO_LARGE
-// (a text field exceeds this package's length bound), INTERNAL (the package
-// itself faulted; the caller's input may be fine).
+// unparseable base_time, unknown language or timezone code), INTERNAL (the
+// package itself faulted; the caller's input may be fine). Request/response
+// size and resource limits are the platform's concern, not this package's.
 message Error {
   string code = 1;
   string message = 2;
@@ -28,13 +27,13 @@ message Error {
 // documented default described on that field.
 message ParseOptions {
   // ISO 639-1 language codes to restrict recognition to, e.g. ["en","fr"].
-  // Empty (the default) uses this package's bounded shortlist of ~18 common
+  // Empty (the default) uses this package's shortlist of ~18 common
   // languages (en es fr de pt it nl ru zh ja ko ar hi tr pl uk sv id) rather
   // than dateparser's full ~200-locale search — unrestricted search is
   // meaningfully slower (tens to hundreds of ms per call on unparseable
-  // input, since every locale is tried before giving up) and this keeps
-  // every call bounded. Pass explicit codes to widen or narrow the search;
-  // at most 30 codes are accepted. An unrecognized code is INVALID_INPUT.
+  // input, since every locale is tried before giving up). Pass explicit
+  // codes to widen or narrow the search. An unrecognized code is
+  // INVALID_INPUT.
   repeated string languages = 1;
   // Which direction resolves an ambiguous bare expression such as a lone
   // weekday or month name: "current_period" (default — the nearest match in
@@ -64,7 +63,7 @@ message ParseOptions {
 // caller-supplied reference instant so the result is reproducible.
 message NaturalDateTimeRequest {
   // The phrase to interpret, e.g. "3 days ago", "next month", "il y a 2 heures".
-  // Required, non-empty, at most 2000 characters.
+  // Required, non-empty.
   string text = 1;
   // The reference instant relative expressions resolve against — RELATIVE
   // BASE, never the wall clock. RFC 3339 / ISO 8601, e.g. "2026-01-01" or
@@ -97,12 +96,10 @@ message ParsedNaturalDateTime {
 // Identify which language a date/time phrase is written in, independent of
 // resolving it to an instant.
 message PhraseLanguageRequest {
-  // The phrase to identify, e.g. "il y a 2 heures". Required, non-empty, at
-  // most 2000 characters.
+  // The phrase to identify, e.g. "il y a 2 heures". Required, non-empty.
   string text = 1;
   // Restrict the candidate languages considered, as ISO 639-1 codes. Empty
-  // uses this package's bounded default shortlist (see ParseOptions.languages).
-  // At most 30 codes are accepted.
+  // uses this package's default shortlist (see ParseOptions.languages).
   repeated string candidate_languages = 2;
 }
 
@@ -119,7 +116,7 @@ message DetectedPhraseLanguage {
 // Find every natural-language date/time expression embedded in a longer
 // passage of free text, each resolved against the same reference instant.
 message DateTimeSearchRequest {
-  // The passage to search. Required, non-empty, at most 20000 characters.
+  // The passage to search. Required, non-empty.
   string text = 1;
   // The reference instant every match's relative expressions resolve
   // against. Required, RFC 3339 / ISO 8601.

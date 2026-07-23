@@ -134,19 +134,9 @@ def test_malformed_base_time_is_a_structured_error():
     assert r.error.code == "INVALID_INPUT"
 
 
-def test_oversized_text_is_rejected_as_too_large():
-    r = run("x" * 2001, BASE)
-    assert r.error.code == "TOO_LARGE"
-
-
 def test_unknown_language_code_is_a_structured_error():
     r = run("3 days ago", BASE, languages=["xx-nonexistent"])
     assert r.error.code == "INVALID_INPUT"
-
-
-def test_too_many_language_codes_is_a_structured_error():
-    r = run("3 days ago", BASE, languages=["en"] * 31)
-    assert r.error.code == "LIMIT_EXCEEDED"
 
 
 def test_invalid_prefer_dates_from_is_a_structured_error():

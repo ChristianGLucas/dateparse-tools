@@ -2,25 +2,16 @@
 
 dateparser owns the algorithmically hard part: recognizing a date/time
 expression in one of ~200 languages and resolving it to an instant. This
-module does four jobs around it, and deliberately nothing more:
+module does three jobs around it, and deliberately nothing more:
 
-1. **Bounds.** Every dimension a caller can drive (text length, language-list
-   length) is capped against the RAW input before any parsing is attempted.
-   Unrestricted language search is also bounded by DEFAULT WIDTH, not merely
-   by length: with no `languages` filter, dateparser tries every one of its
-   ~200 bundled locales before giving up on unparseable text, which measured
-   tens to hundreds of milliseconds per call even on short input. Every node
-   here defaults to a compact common-language shortlist instead, unless the
-   caller explicitly widens it.
-
-2. **Deterministic timezone handling.** dateparser's own default `TIMEZONE`
+1. **Deterministic timezone handling.** dateparser's own default `TIMEZONE`
    setting is `"local"` -- the deploying HOST's system zone -- which would
    make timezone-aware output depend on which machine answered the request.
    This module never leaves that default in play: it is always either left
    alone entirely (naive in, naive out) or pinned to an explicit zone name
    ("UTC", or the caller's `assume_timezone`), never "local".
 
-3. **A single base_time contract.** Every relative expression resolves
+2. **A single base_time contract.** Every relative expression resolves
    against RELATIVE_BASE, and RELATIVE_BASE always comes from the caller's
    `base_time`, never from wall-clock `now()`. An aware base_time (carrying
    a UTC offset) yields aware output; a naive one yields naive output --
@@ -28,9 +19,17 @@ module does four jobs around it, and deliberately nothing more:
    the request alone, rather than from what the matched text happened to
    contain.
 
-4. **A stable error contract.** Anything dateparser or this module rejects
+3. **A stable error contract.** Anything dateparser or this module rejects
    comes back as an Error{code, message} instead of a raised exception
    reaching the caller.
+
+Byte-size / input-length / batch-count limits are not this module's job --
+the platform owns request-size and resource limits. This module still
+defaults an unfiltered language search to a compact common-language
+shortlist (see DEFAULT_LANGUAGES) rather than the library's full ~200
+locales, purely because that materially narrows the DEFAULT match
+candidates -- a caller who wants the full search still gets it by passing
+an explicit, wider `languages` list.
 """
 
 from __future__ import annotations
@@ -53,22 +52,6 @@ class DPError(Exception):
 
 def err(code: str, message: str) -> DPError:
     return DPError(code, message)
-
-
-# --- Bounds, enforced against RAW input before any parsing is attempted. ---
-MAX_TEXT_LEN = 2000
-MAX_SEARCH_TEXT_LEN = 20000
-MAX_LANGUAGES = 30
-
-# Caller strings are echoed into error messages so a mistake is easy to spot.
-# Truncated first: an error is a diagnostic, not a mirror.
-MAX_ECHO = 80
-
-
-def echo(value: str) -> str:
-    if len(value) <= MAX_ECHO:
-        return value
-    return f"{value[:MAX_ECHO]}... ({len(value)} characters)"
 
 
 # A compact shortlist of widely-used languages, used whenever a caller does
@@ -98,14 +81,9 @@ _PREFER_DATES_FROM = {"current_period", "future", "past"}
 _DATE_ORDER = {"MDY", "DMY", "YMD"}
 
 
-def check_text(text: str, field: str, max_len: int = MAX_TEXT_LEN) -> str:
+def check_text(text: str, field: str) -> str:
     if text is None or text == "":
         raise err("INVALID_INPUT", f"{field} is required and must not be empty")
-    if len(text) > max_len:
-        raise err(
-            "TOO_LARGE",
-            f"{field} is {len(text)} characters; the maximum is {max_len}",
-        )
     return text
 
 
@@ -113,16 +91,11 @@ def validate_languages(codes: Iterable[str], field: str) -> List[str]:
     codes = list(codes)
     if not codes:
         return list(DEFAULT_LANGUAGES)
-    if len(codes) > MAX_LANGUAGES:
-        raise err(
-            "LIMIT_EXCEEDED",
-            f"{field} has {len(codes)} entries; the maximum is {MAX_LANGUAGES}",
-        )
     for code in codes:
         if code not in _SUPPORTED_SET:
             raise err(
                 "INVALID_INPUT",
-                f"{field} entry '{echo(code)}' is not a language code dateparser's "
+                f"{field} entry '{code}' is not a language code dateparser's "
                 f"bundled data recognizes (see ListSupportedLanguages)",
             )
     return codes
@@ -138,7 +111,7 @@ def check_timezone(name: str, field: str) -> str:
     if name not in available_timezones():
         raise err(
             "INVALID_INPUT",
-            f"{field} '{echo(name)}' is not a known IANA time zone name",
+            f"{field} '{name}' is not a known IANA time zone name",
         )
     return name
 
@@ -152,7 +125,7 @@ def parse_base_time(value: str, field: str = "base_time") -> Tuple[datetime, boo
     except (ValueError, OverflowError) as exc:
         raise err(
             "INVALID_INPUT",
-            f"{field} '{echo(value)}' is not a valid RFC 3339 / ISO 8601 "
+            f"{field} '{value}' is not a valid RFC 3339 / ISO 8601 "
             f"instant: {exc}",
         )
     return dt, dt.tzinfo is not None
@@ -208,7 +181,7 @@ def build_settings(base_time: str, options) -> Tuple[dict, List[str], bool]:
         if prefer not in _PREFER_DATES_FROM:
             raise err(
                 "INVALID_INPUT",
-                f"options.prefer_dates_from '{echo(prefer)}' must be one of "
+                f"options.prefer_dates_from '{prefer}' must be one of "
                 f"{sorted(_PREFER_DATES_FROM)}",
             )
         settings["PREFER_DATES_FROM"] = prefer
@@ -218,7 +191,7 @@ def build_settings(base_time: str, options) -> Tuple[dict, List[str], bool]:
         if order not in _DATE_ORDER:
             raise err(
                 "INVALID_INPUT",
-                f"options.date_order '{echo(order)}' must be one of {sorted(_DATE_ORDER)}",
+                f"options.date_order '{order}' must be one of {sorted(_DATE_ORDER)}",
             )
         settings["DATE_ORDER"] = order
 

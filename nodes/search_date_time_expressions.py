@@ -1,7 +1,7 @@
 from gen.messages_pb2 import DateTimeSearchRequest, FoundDateTimeExpressions, DateTimeMatch
 from gen.axiom_context import AxiomContext
 
-from nodes._dp import DPError, MAX_SEARCH_TEXT_LEN, build_settings, check_text, locate_matches
+from nodes._dp import DPError, build_settings, check_text, locate_matches
 
 
 def search_date_time_expressions(ax: AxiomContext, input: DateTimeSearchRequest) -> FoundDateTimeExpressions:
@@ -19,7 +19,7 @@ def search_date_time_expressions(ax: AxiomContext, input: DateTimeSearchRequest)
     candidate spans.
     """
     try:
-        text = check_text(text=input.text, field="text", max_len=MAX_SEARCH_TEXT_LEN)
+        text = check_text(text=input.text, field="text")
         settings, languages, _ = build_settings(input.base_time, input.options)
     except DPError as exc:
         return FoundDateTimeExpressions(error={"code": exc.code, "message": exc.message})

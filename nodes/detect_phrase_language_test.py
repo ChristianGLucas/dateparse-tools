@@ -58,8 +58,3 @@ def test_empty_text_is_a_structured_error():
 def test_unknown_candidate_language_is_a_structured_error():
     r = run("hello", candidate_languages=["zz-not-a-real-code"])
     assert r.error.code == "INVALID_INPUT"
-
-
-def test_oversized_text_is_rejected_as_too_large():
-    r = run("x" * 2001)
-    assert r.error.code == "TOO_LARGE"

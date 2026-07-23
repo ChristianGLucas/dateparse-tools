@@ -1,5 +1,5 @@
 name: christiangeorgelucas/dateparse-tools
-version: 0.1.0
+version: 0.1.1
 language: python
 description: >-
   Composable Axiom natural-language date/time parsing nodes wrapping the

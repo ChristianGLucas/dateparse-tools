@@ -24,11 +24,11 @@ every node is deterministic and reproducible across runs and machines.
 
 ## Design notes
 
-- **Bounded language search.** With no `languages` filter, dateparser tries
-  every one of its ~200 bundled locales before giving up on unparseable
+- **Bounded default language search.** With no `languages` filter, dateparser
+  tries every one of its ~200 bundled locales before giving up on unparseable
   text — measured at tens to hundreds of milliseconds per call. Every node
   here defaults to a compact ~18-language shortlist instead, and accepts an
-  explicit `languages` override (capped at 30 codes) to widen or narrow it.
+  explicit `languages` override to widen or narrow it.
 - **Deterministic timezone handling.** dateparser's own default `TIMEZONE`
   setting is `"local"` (the deploying host's system zone), which would make
   timezone-aware output depend on which machine answered the request. This
@@ -37,6 +37,9 @@ every node is deterministic and reproducible across runs and machines.
   caller's `assume_timezone`).
 - **Offline and stateless.** dateparser bundles its own language data; no
   network calls, no persistence.
+- **Size and resource limits are the platform's job**, not this package's —
+  nodes here do no request/response size or batch-count enforcement of
+  their own.
 
 ## License
 

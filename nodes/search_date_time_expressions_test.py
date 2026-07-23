@@ -68,8 +68,3 @@ def test_empty_text_is_a_structured_error():
 def test_missing_base_time_is_a_structured_error():
     r = run("2026-03-05", base_time="")
     assert r.error.code == "INVALID_INPUT"
-
-
-def test_oversized_text_is_rejected_as_too_large():
-    r = run("x" * 20001)
-    assert r.error.code == "TOO_LARGE"
